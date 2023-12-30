@@ -1,10 +1,16 @@
 #include <windows.h>
 #include <iostream>
 #include <conio.h>
+#include <stdio.h>
+#include <string>
+#include <time.h>
+#include <WS2tcpip.h>
 
-void igralnoPolje(int m,int razmakx,int razmaky)
+#pragma comment(lib, "ws2_32.lib")
+
+void igralnoPolje(int m, int razmakx, int razmaky)
 {
-    int ax;
+    int ax;    
     int ay;
     const std::string zacetek = "\x1b[";
     const char kvadrat = 254;
@@ -12,47 +18,46 @@ void igralnoPolje(int m,int razmakx,int razmaky)
 
     std::string izhod;
 
-    //nari≈°i polje
-    //najprej nastavi barvo
+    //nariöi polje
     std::cout << "\x1b[38;2;100;100;100m";//nastavi barvo na rgb
-    for (int x = 1;x < m+1;x++)
+    for (int x = 1; x < m + 1; x++)
     {
-        for(int y = 1;y < m+1;y++)
+        for (int y = 1; y < m + 1; y++)
         {
-            ax = 2*x+razmakx;
-            ay = y+razmaky;
+            ax = 2 * x + razmakx;
+            ay = y + razmaky;
 
-            izhod = zacetek + std::to_string(ay) + ';' + std::to_string(ax) + 'H' + kvadrat;//prika≈æi kvadrat na ax ay koordinati
+            izhod = zacetek + std::to_string(ay) + ';' + std::to_string(ax) + 'H' + kvadrat;//prikaûi kvadrat na ax ay koordinati
             std::cout << izhod;
             izhod = "";
 
-        }   
+        }
     }
 
-    //pisanje y stolpca
+    //risanje y stolpca
     izhod = "";
-    std::cout << "\x1b[38;2;240;100;100m";//nastavi barvo na rgb --rdeƒçkasta
-    ax = razmakx-1;//x koordinata je konstantna saj pi≈°emo samo y
+    std::cout << "\x1b[38;2;240;100;100m";//nastavi barvo na rgb --rdeËkasta
+    ax = razmakx - 1;//x koordinata je konstantna saj piöemo samo y
 
-    for(int y = 1;y < m+1;y++)
+    for (int y = 1; y < m + 1; y++)
     {
-        ay = y+razmaky;
+        ay = y + razmaky;
 
-        izhod = zacetek + std::to_string(ay) + ';' + std::to_string(ax) + 'H' + abeceda[m-y+1];
+        izhod = zacetek + std::to_string(ay) + ';' + std::to_string(ax) + 'H' + abeceda[m - y + 1];
         std::cout << izhod;
         izhod = "";
     }
 
-    //pisanje x stolpca
+    //risanje x stolpca
     izhod = "";
     std::cout << "\x1b[38;2;100;100;240m";//nastavi na barvo rgb --modrikasta
-    ay = razmaky+1+m;//y kooridnata je konstantna saj pi≈°emo samo x
+    ay = razmaky + 1 + m;//y kooridnata je konstantna saj piöemo samo x
 
-    for(int x = 1;x < m+1;x++)
+    for (int x = 1; x < m + 1; x++)
     {
-        ax = 2*x+razmakx;
+        ax = 2 * x + razmakx;
 
-        izhod = zacetek + std::to_string(ay) + ';' + std::to_string(ax) + 'H' + std::to_string(x-1);
+        izhod = zacetek + std::to_string(ay) + ';' + std::to_string(ax) + 'H' + std::to_string(x - 1);
         std::cout << izhod;
         izhod = "";
     }
@@ -62,27 +67,27 @@ void igralnoPolje(int m,int razmakx,int razmaky)
 }
 
 
-void ladja(int velikost, int x, int y,int smer)
+void ladja(int velikost, int x, int y, int smer)
 {
-    const char kvadrat = 254;   
-    const std::string zacetek= "\x1b[";
+    const char kvadrat = 254;
+    const std::string zacetek = "\x1b[";
     std::string izhod;
-    
-    std::cout << "\x1b[38;2;200;30;170m";//nastavi na barvo rgb --vijoliƒçna
 
-    if(smer == 1)
+    std::cout << "\x1b[38;2;200;30;170m";//nastavi na barvo rgb --vijoliËna
+
+    if (smer == 1)//navpicno
     {
-        for(int i = 0;i < velikost;i++)
+        for (int i = 0; i < velikost; i++)
         {
-            izhod = zacetek + std::to_string(y+i) + ';' + std::to_string(x) + 'H' + kvadrat;
+            izhod = zacetek + std::to_string(y + i) + ';' + std::to_string(x) + 'H' + kvadrat;
             std::cout << izhod;
         }
     }
-    if(smer == 0)
+    if (smer == 0)//vodoravno
     {
-        for(int i = 0;i < velikost;i++)
+        for (int i = 0; i < velikost; i++)
         {
-            izhod = zacetek + std::to_string(y) + ';' + std::to_string(x-2*i) + 'H' + kvadrat;
+            izhod = zacetek + std::to_string(y) + ';' + std::to_string(x - 2 * i) + 'H' + kvadrat;
             std::cout << izhod;
         }
     }
@@ -91,67 +96,141 @@ void ladja(int velikost, int x, int y,int smer)
 }
 
 
-bool EnableVTMode()
+bool vklopiVTS()//Virtual Terminal Sequences
 {
-//nastavi izhod da uporablja virtual terminal sequences
-HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
-if (hOut == INVALID_HANDLE_VALUE)
-{
-return false;
-}
-DWORD dwMode = 0;
-if (!GetConsoleMode(hOut, &dwMode))
-{
-return false;
-}
-dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-if (!SetConsoleMode(hOut, dwMode))
-{
-return false;
-}
-return true;
+    //nastavi izhod da uporablja virtual terminal sequences
+    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+    if (hOut == INVALID_HANDLE_VALUE)
+    {
+        return false;
+    }
+    DWORD dwMode = 0;
+    if (!GetConsoleMode(hOut, &dwMode))
+    {
+        return false;
+    }
+    dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+    if (!SetConsoleMode(hOut, dwMode))
+    {
+        return false;
+    }
+    return true;
 }
 
 
 int main()
-{   
-    EnableVTMode();
-    std::cout << "\x1b[?12l";
-    std::cout << "\x1b[?25l";
+{
+    vklopiVTS();
+    std::cout << "\x1b[?12l";//izklopi utripanje miöke
+    std::cout << "\x1b[?25l";//izklopi kazalec miöke
 
-    int m = 10;
-    int razmaky = 4;
-    int razmakx = 2*razmaky;
-    int x;
-    int y;
+    const int m = 10;//velikost igralnega polja
+    int razmaky = 4;//razmak od gornjega roba
+    int razmakx = 2 * razmaky;//razmak od stranskega roba
+    int stLadjic = 4;//koliko ladjic hocemo imeti
+    int x;//koordinata x
+    int y;//koordinata y
+    int ax;
+    int ay;
     const char abeceda[27] = "ABCDEFGHIJKLMNOPQRSTUVWKYZ";
-    char crka;
-    char stevilka;
-    char smer;
-    char velikost;
-    const std::string zacetek ="\x1b[";
+    char crka;//koordinata y
+    char stevilka;//koordinata x
+    char smer;//kako glelda ladjica vodoravno-navpiËno
+    char velikost;//koliko kosov je dolga ladjica
+    const std::string zacetek = "\x1b[";
     std::string izhod = "";
 
+    int igralnaPlosca[m][m];
+    int ladjice[6] = {0,0,1,2,0,1};
+    //ladjice[i] i = velikost, vrednost tega je koliko teh ladjic imaö öe lahko
 
-    igralnoPolje(m,razmakx,razmaky);
-
-    //risanje ladjic
-    int i = 0;
-    while(i < 3)
+    for (int i = 0; i < m; i++)
     {
-        izhod = "";
-        izhod = zacetek + std::to_string(m+razmaky+4) + ';' + std::to_string(razmakx) + 'H';
+        for (int j = 0; j < m; j++)
+        {
+            igralnaPlosca[i][j] = 0;
+        }
+    }
+
+    std::string ipAddress = "192.168.8.39";
+    int port = 27000;
+
+    //vklopi WinSock
+    WSAData data;
+    WORD ver = MAKEWORD(2, 2);
+    int wsResult = WSAStartup(ver, &data);
+    if (wsResult != 0)
+    {
+        std::cerr << "ne morem zagnati WinSocka #" << WSAGetLastError() << std::endl;
+        WSACleanup;
+        return 1;
+    }
+
+    //ustvari socket
+    SOCKET sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock == INVALID_SOCKET)
+    {
+        std::cerr << "ne morem ustvariti socket-a #" << WSAGetLastError() << std::endl;
+        WSACleanup();
+        return 1;
+    }
+
+    //izpolni hint strukturo
+    sockaddr_in hint;
+    hint.sin_family = AF_INET;
+    hint.sin_port = htons(port);
+    inet_pton(AF_INET, ipAddress.c_str(), &hint.sin_addr);
+
+    //Poveûi se na server
+    int connResult = connect(sock, (sockaddr*)&hint, sizeof(hint));
+    if (connResult == SOCKET_ERROR)
+    {
+        std::cerr << "ne morem se povezati na server #" << WSAGetLastError() << std::endl;
+        closesocket(sock);
+        WSACleanup();
+        return 1;
+    }
+
+    igralnoPolje(m, razmakx, razmaky);
+
+
+    //pisanje zahtevanih ladij
+    izhod = "";
+    izhod = zacetek + std::to_string(razmaky + 1) + ';' + std::to_string(razmakx + 2*m + 4) + 'H' + "1x2d";
+    std::cout << izhod;
+    izhod = zacetek + std::to_string(razmaky + 2) + ';' + std::to_string(razmakx + 2 * m + 4) + 'H' + "2x3d";
+    std::cout << izhod;
+    izhod = zacetek + std::to_string(razmaky + 3) + ';' + std::to_string(razmakx + 2 * m + 4) + 'H' + "1x5d";
+    std::cout << izhod;
+    izhod = "";
+
+
+                                            //risanje ladjic
+    while (stLadjic > 0)
+    {   
+        zacetek:;
+        izhod = "";//postavimo kazalec na pravo mesto za vpisovanje naöih ukazov
+        izhod = zacetek + std::to_string(m + razmaky + 4) + ';' + std::to_string(razmakx) + 'H';
         std::cout << izhod;
 
 
 
-        velikost:;//zajemanje velikosti za ladjo
-        while(!kbhit)
-        {}
-        velikost = getch();
-        if(velikost > 48 && velikost < 58)
+    velikost:;//zajemanje velikosti za ladjo
+        while (!_kbhit)
         {
-            std::cout << velikost;
+        }
+        velikost = _getch();
+        if (velikost > 48 && velikost < 58)//mora biti ascii ötevilka
+        {   
+            if (ladjice[velikost - 48] > 0)
+            {
+                ladjice[velikost - 48]--;
+                std::cout << velikost;
+            }
+            else
+            {
+                goto velikost;
+            }
         }
         else
         {
@@ -159,13 +238,22 @@ int main()
         }
 
 
-        stevilka:;//zajemanje stevilke za lokacijo
-        while(!kbhit)
-        {}
-        stevilka = getch();
-        if(stevilka > 47 && stevilka < 58)
+    stevilka:;//zajemanje ötevilke za lokacijo
+        while (!_kbhit)
+        {
+        }
+        stevilka = _getch();
+        if (stevilka > 47 && stevilka < 58)//mora biti ascii ötevilka
         {
             std::cout << stevilka;
+        }
+        else if (stevilka == 8)
+        {   
+            std::cout << "\x1b[1D";
+            std::cout << " ";
+            std::cout << "\x1b[1D";
+            ladjice[velikost - 48]++;
+            goto velikost;
         }
         else
         {
@@ -173,13 +261,21 @@ int main()
         }
 
 
-        crka:;//zajemanje crke za lokacijo              
-        while(!kbhit())
-        {}
-        crka = getch();
-        if(crka < 91 && crka > 64)
+    crka:;//zajemanje Ërke za lokacijo              
+        while (!_kbhit())
+        {
+        }
+        crka = _getch();
+        if (crka < 75 && crka > 64)//mora biti ascii Ërka
         {
             std::cout << crka;
+        }
+        else if ( crka == 8)
+        {   
+            std::cout << "\x1b[1D";
+            std::cout << " ";
+            std::cout << "\x1b[1D";
+            goto stevilka;
         }
         else
         {
@@ -187,13 +283,21 @@ int main()
         }
 
 
-        smer:;//zajemanje smer ladje 1 navpicno 0 vodoravno
-        while(!kbhit())
-        {}
-        smer = getch();
-        if(smer > 47 && smer < 50)
+    smer:;//zajemanje smer ladje 1 navpicno 0 vodoravno
+        while (!_kbhit())
+        {
+        }
+        smer = _getch();
+        if (smer > 47 && smer < 50)//mora biti ascii ötevilka
         {
             std::cout << smer;
+        }
+        else if (smer == 8)
+        {   
+            std::cout << "\x1b[1D";
+            std::cout << " ";
+            std::cout << "\x1b[1D";
+            goto crka;
         }
         else
         {
@@ -203,23 +307,184 @@ int main()
 
 
 
-        //racunanje koncnih vrednosti
-        velikost = velikost-48;
-        x = 2*(stevilka-47)+razmakx;
-        y = m+1+razmaky-crka+64;
-        smer = smer-48; 
+        //racunanje koncnih vrednosti tako da se znebimo njihovih "ascii vrednosti"
+        velikost = velikost - 48;
+        x = 2 * (stevilka - 47) + razmakx;
+        y = m + 1 + razmaky - crka + 64;
+        smer = smer - 48;
 
-        ladja(velikost,x,y,smer);
+        //primerja z vhodnimi vrednostmi saj so x,y ze procesirane in nastavljene za pisanje v terminal
+        switch (smer)//preveri, ce je mozno postaviti ladjico v polje
+        {
+            case 0://vodoarvno
+                if ((stevilka - 47) < velikost)
+                {
+                    izhod = "";//zbriöi vse napisano in zaËni znova
+                    izhod = zacetek + std::to_string(m + razmaky + 4) + ';' + std::to_string(razmakx) + 'H';
+                    std::cout << izhod;
+                    std::cout << "    ";
+                    ladjice[velikost - 48]++;
+                    goto zacetek;
+                }
+                break;
+            case 1://navpicno
+                if ((crka-64) < velikost)
+                {
+                    izhod = "";//zbriöi vse napisano in zaËni znova
+                    izhod = zacetek + std::to_string(m + razmaky + 4) + ';' + std::to_string(razmakx) + 'H';
+                    std::cout << izhod;
+                    std::cout << "    ";
+                    ladjice[velikost]++;
+                    goto zacetek;
+                }
+                break;
+        }
 
-        izhod = "";
-        izhod = zacetek + std::to_string(m+razmaky+4) + ';' + std::to_string(razmakx) + 'H';
+        ax = stevilka - 48;//dodatne koordinate za sam array in za server
+        ay = crka - 65;
+
+        if (ax < 0 || ay < 0)
+        {   
+            ladjice[velikost]++;
+            goto zacetek;
+        }
+
+        switch (smer)
+        {
+            case 0://vodoravno
+                for (int i = 0; i < velikost; i++)
+                {
+                    if (igralnaPlosca[ax - i][ay] == 1)
+                    {   
+                        izhod = "";//zbriöi vse napisano in nadaljuj z naslednjo ladjico
+                        izhod = zacetek + std::to_string(m + razmaky + 4) + ';' + std::to_string(razmakx) + 'H';
+                        std::cout << izhod;
+                        std::cout << "    ";
+                        ladjice[velikost]++;
+                        goto zacetek;
+                    }
+                }
+                //Ëe preûivi jo shranimo
+                for (int i = 0; i < velikost; i++)
+                {
+                    igralnaPlosca[ax - i][ay] = 1;
+                }
+                break;
+
+
+            case 1://navpicno
+                for (int i = 0; i < velikost; i++)
+                {
+                    if (igralnaPlosca[ax][ay - i] == 1)
+                    {   
+                        izhod = "";//zbriöi vse napisano in nadaljuj z naslednjo ladjico
+                        izhod = zacetek + std::to_string(m + razmaky + 4) + ';' + std::to_string(razmakx) + 'H';
+                        std::cout << izhod;
+                        std::cout << "    ";
+                        ladjice[velikost]++;
+                        goto zacetek;
+                    }
+                }
+                //Ëe preûivi jo shranimo
+                for (int i = 0; i < velikost; i++)
+                {
+                    igralnaPlosca[ax][ay - i] = 1;
+                }
+                break;
+        }
+
+
+        ladja(velikost, x, y, smer);
+        //tukaj se poölje serverju te koordinate da si jih zapiöe poölje ax,ay seveda
+
+        izhod = "";//zbriöi vse napisano in nadaljuj z naslednjo ladjico
+        izhod = zacetek + std::to_string(m + razmaky + 4) + ';' + std::to_string(razmakx) + 'H';
         std::cout << izhod;
         std::cout << "    ";
 
-        i++;
+        stLadjic--;
+    }                       //konec risanje ladij
+
+    //izbriöi tekst
+    izhod = "";
+    izhod = zacetek + std::to_string(razmaky + 1) + ';' + std::to_string(razmakx + 2 * m + 4) + 'H' + "    ";
+    std::cout << izhod;
+    izhod = zacetek + std::to_string(razmaky + 2) + ';' + std::to_string(razmakx + 2 * m + 4) + 'H' + "    ";
+    std::cout << izhod;
+    izhod = zacetek + std::to_string(razmaky + 3) + ';' + std::to_string(razmakx + 2 * m + 4) + 'H' + "    ";
+    std::cout << izhod;
+    izhod = "";
+
+
+
+    //do tukaj naredi prvi del Postavitev ladjic
+    //tukaj se zaËne drugi del Igra
+    //kjer se tudi prikaûe nasprotnikovo polje
+       
+    igralnoPolje(m, razmakx + 2 * m + 10, razmaky);//nasprotnikovo polje
+
+    //while loop za igranje
+
+    char buf[4096];
+    char in_buf;
+    std::string userInput = "";
+    fd_set readSet;
+
+
+                                                //to je vzeto it BareboneClient treba spremeniti
+                                                //tukaj je samo za referenco kaj mora biti narejeno
+    while (1)
+    {        
+        if (_kbhit())
+        {
+            in_buf = _getch();
+            if (in_buf == 13)
+            {
+                if (userInput.size() > 0)
+                {
+                    int sendResult = send(sock, userInput.c_str(), userInput.size() + 1, 0);
+                    userInput = "";
+                }
+                else
+                {
+                    break;
+                }
+            }
+            else
+            {
+                userInput = userInput + in_buf;
+            }
+        }
+
+        FD_ZERO(&readSet);
+        FD_SET(sock, &readSet);
+
+        timeval timeout;
+        timeout.tv_sec = 0;
+        timeout.tv_usec = 10000;
+
+        if (select(0, &readSet, nullptr, nullptr, &timeout) > 0)
+        {
+            ZeroMemory(buf, 4096);
+            int bytesReceived = recv(sock, buf, 4096, 0);
+            if (bytesReceived > 0)
+            {
+                std::cout << "prihaja> " << std::string(buf, 0, bytesReceived) << std::endl;
+            }
+
+            if (bytesReceived == SOCKET_ERROR)
+            {
+                std::cerr << "napaka v recv()" << std::endl;
+                return 1;
+            }
+        }
+
+
     }
 
-    izhod = zacetek + std::to_string(m+razmaky+5) + ';' + '1' + 'H';
+
+    //tukaj je konec igre
+    izhod = zacetek + std::to_string(m + razmaky + 5) + ';' + '1' + 'H';
     std::cout << izhod;
     system("pause");
     return 0;
