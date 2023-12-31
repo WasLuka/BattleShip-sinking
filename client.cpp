@@ -1,3 +1,5 @@
+#define WIN32_LEAN_AND_MEAN
+
 #include <windows.h>
 #include <iostream>
 #include <conio.h>
@@ -71,7 +73,7 @@ void ladja(int velikost, int x, int y, int smer)
 {
     const char kvadrat = 254;
     const std::string zacetek = "\x1b[";
-    std::string izhod;
+    std::string izhod = "";
 
     std::cout << "\x1b[38;2;200;30;170m";//nastavi na barvo rgb --vijolièna
 
@@ -95,6 +97,23 @@ void ladja(int velikost, int x, int y, int smer)
     std::cout << "\x1b[0m";//ponastavi barve
 }
 
+
+void polje(int x, int y, int r, int g, int b)
+{
+    const char kvadrat = 254;
+    const std::string zacetek = "\x1b[";
+    std::string izhod = "";
+
+    //nastavi barvo pisave na rgb vrednost
+    izhod = zacetek + "38;2;" + std::to_string(r) + ';' + std::to_string(g) + ';' + std::to_string(b) + 'm';
+    std::cout << izhod;
+
+    //pobarvaj izbran kvadrat na to barvo
+    izhod = zacetek + std::to_string(y) + ';' + std::to_string(x) + 'H' + kvadrat;
+    std::cout << izhod;
+    
+    std::cout << "\x1b[0m";//ponastavi barvo
+}
 
 bool vklopiVTS()//Virtual Terminal Sequences
 {
@@ -125,8 +144,8 @@ int main()
     std::cout << "\x1b[?25l";//izklopi kazalec miške
 
     const int m = 10;//velikost igralnega polja
-    int razmaky = 4;//razmak od gornjega roba
-    int razmakx = 2 * razmaky;//razmak od stranskega roba
+    const int razmaky = 4;//razmak od gornjega roba
+    const int razmakx = 2 * razmaky;//razmak od stranskega roba
     int stLadjic = 4;//koliko ladjic hocemo imeti
     int x;//koordinata x
     int y;//koordinata y
@@ -140,7 +159,9 @@ int main()
     const std::string zacetek = "\x1b[";
     std::string izhod = "";
 
-    int igralnaPlosca[m][m];
+    int igralnaPlosca[m][m];// 0 ali 1
+    int nasprotnikovaPlosca[m][m];//0 ali 1 ali 2
+    //0 nisi še streljal, 1 že streljal a zgrešil, 2 streljal in zadel
     int ladjice[6] = {0,0,1,2,0,1};
     //ladjice[i] i = velikost, vrednost tega je koliko teh ladjic imaš še lahko
 
@@ -149,6 +170,13 @@ int main()
         for (int j = 0; j < m; j++)
         {
             igralnaPlosca[i][j] = 0;
+        }
+    }
+    for (int i = 0; i < m; i++)
+    {
+        for (int j = 0; j < m; j++)
+        {
+            nasprotnikovaPlosca[i][j] = 0;
         }
     }
 
@@ -303,7 +331,8 @@ int main()
         {
             goto smer;
         }
-
+        
+                                                                        //tukaj še dodaj možnost kakor je pri streljanju da se najprej obarva nato postaviš z "enter"
 
 
 
@@ -340,7 +369,7 @@ int main()
                 break;
         }
 
-        ax = stevilka - 48;//dodatne koordinate za sam array in za server
+        ax = stevilka - 48;//dodatne koordinate za igralnaPlosca in server
         ay = crka - 65;
 
         if (ax < 0 || ay < 0)
@@ -349,7 +378,7 @@ int main()
             goto zacetek;
         }
 
-        switch (smer)
+        switch (smer)//preveri èe seka že kakšno ladjo
         {
             case 0://vodoravno
                 for (int i = 0; i < velikost; i++)
@@ -371,8 +400,7 @@ int main()
                 }
                 break;
 
-
-            case 1://navpicno
+            case 1://navpièno
                 for (int i = 0; i < velikost; i++)
                 {
                     if (igralnaPlosca[ax][ay - i] == 1)
@@ -395,7 +423,8 @@ int main()
 
 
         ladja(velikost, x, y, smer);
-        //tukaj se pošlje serverju te koordinate da si jih zapiše pošlje ax,ay seveda
+        char serverOutLadje[4] = {velikost, ax, ay, smer};
+        send(sock, serverOutLadje, 5, 0);
 
         izhod = "";//zbriši vse napisano in nadaljuj z naslednjo ladjico
         izhod = zacetek + std::to_string(m + razmaky + 4) + ';' + std::to_string(razmakx) + 'H';
@@ -420,39 +449,162 @@ int main()
     //do tukaj naredi prvi del Postavitev ladjic
     //tukaj se zaène drugi del Igra
     //kjer se tudi prikaže nasprotnikovo polje
+
+    //še pošljemo serverju da je ta client konec z postavljanjem ladjic
+    char pripravljen[4] = { 100,0,0,0 };
+    send(sock, pripravljen, 4, 0);
        
     igralnoPolje(m, razmakx + 2 * m + 10, razmaky);//nasprotnikovo polje
 
     //while loop za igranje
 
-    char buf[4096];
+    char buf[256];
     char in_buf;
+    char test;
     std::string userInput = "";
+    char cUserInput[2] = "";
     fd_set readSet;
 
+    int outCount = 0;
+    bool dovoliPosiljanje = false;
 
-                                                //to je vzeto it BareboneClient treba spremeniti
-                                                //tukaj je samo za referenco kaj mora biti narejeno
+    ZeroMemory(buf, 256);
+
+    recv(sock, buf, 256, 0);
+
+    if (buf[0] == 1)
+    {   
+        dovoliPosiljanje = false;
+        izhod = "";//postavimo kazalec na pravo mesto za vpisovanje naših ukazov
+        izhod = zacetek + std::to_string(m + razmaky + 4) + ';' + std::to_string(razmakx) + 'H' + "zacnes drugi\n";
+        std::cout << izhod;
+    }
+    else
+    {   
+        dovoliPosiljanje = true;
+        izhod = "";//postavimo kazalec na pravo mesto za vpisovanje naših ukazov
+        izhod = zacetek + std::to_string(m + razmaky + 4) + ';' + std::to_string(razmakx) + 'H' + "zacnes prvi\n";
+        std::cout << izhod;
+    }
+
+    system("pause");
+    izhod = "";//postavimo kazalec na pravo mesto za vpisovanje naših ukazov
+    izhod = zacetek + std::to_string(m + razmaky + 4) + ';' + std::to_string(razmakx) + 'H' + "                       ";
+    std::cout << izhod;
+    izhod = "";//postavimo kazalec na pravo mesto za vpisovanje naših ukazov
+    izhod = zacetek + std::to_string(m + razmaky + 5) + ';' + std::to_string(1) + 'H' + "                                                                 ";
+    std::cout << izhod;
+
+    //while loop kjer poteka sama igra
     while (1)
-    {        
-        if (_kbhit())
+    {   
+    gor:;
+        if (_kbhit() &&dovoliPosiljanje)
         {
             in_buf = _getch();
-            if (in_buf == 13)
+            if (in_buf == 13)//èe hoèemo oddati serverju
             {
-                if (userInput.size() > 0)
-                {
-                    int sendResult = send(sock, userInput.c_str(), userInput.size() + 1, 0);
-                    userInput = "";
+                if (outCount == 2)
+                {   
+                    izhod = "";//postavimo kazalec na pravo mesto za vpisovanje naših ukazov
+                    izhod = zacetek + std::to_string(m + razmaky + 4) + ';' + std::to_string(razmakx) + 'H' + "  ";
+                    std::cout << izhod;
+
+                    userInput = cUserInput;
+
+                    ax = cUserInput[0] - 48;
+                    ay = cUserInput[1] - 65;
+                    if (nasprotnikovaPlosca[ax][ay] == 0)
+                    {
+                        send(sock, userInput.c_str(), userInput.size() + 1, 0);//tukaj pošljemo serverju
+                        userInput = "";
+                        outCount = 0;
+                        dovoliPosiljanje = false;
+                    }
                 }
                 else
                 {
-                    break;
+                    goto gor;
+                }
+            }
+            else if (in_buf == 8)//èe hoèemo popraviti vrednost
+            {
+                switch (outCount)
+                {
+                    case 1:
+                        izhod = "";//postavimo kazalec na pravo mesto za vpisovanje naših ukazov
+                        izhod = zacetek + std::to_string(m + razmaky + 4) + ';' + std::to_string(razmakx) + 'H';
+                        std::cout << izhod;
+                        izhod = "";
+                        izhod = zacetek + std::to_string(1) + 'P';
+                        std::cout << izhod;
+                        outCount--;
+                        break;
+
+                    case 2:
+                        izhod = "";//postavimo kazalec na pravo mesto za vpisovanje naših ukazov
+                        izhod = zacetek + std::to_string(m + razmaky + 4) + ';' + std::to_string(razmakx + 1) + 'H';
+                        std::cout << izhod;
+                        izhod = "";
+                        izhod = zacetek + std::to_string(1) + 'P';
+                        std::cout << izhod;
+                        x = razmakx + 2*(cUserInput[0] - 47) + m + 20;
+                        y = razmaky + m - cUserInput[1] + 65;
+                        
+                        ax = cUserInput[0] - 48;
+                        ay = cUserInput[1] - 65;
+                        if (nasprotnikovaPlosca[ax][ay] == 0)
+                        {
+                            polje(x, y, 100, 100, 100);
+                            outCount--;
+                        }
+                        break;
+
+                    default:
+                        break;
                 }
             }
             else
             {
-                userInput = userInput + in_buf;
+                switch (outCount)//èe prejemamo koordinate
+                {
+                    case 0:
+                        if (in_buf < 58 && in_buf > 47 && dovoliPosiljanje)
+                        {   
+                            cUserInput[0] = in_buf;
+                            izhod = "";//postavimo kazalec na pravo mesto za vpisovanje naših ukazov
+                            izhod = zacetek + std::to_string(m + razmaky + 4) + ';' + std::to_string(razmakx) + 'H';
+                            std::cout << izhod;
+                            std::cout << in_buf;
+                            outCount++;
+                        }
+                        break;
+
+                    case 1:
+                        if (in_buf < 75 && in_buf > 64 && dovoliPosiljanje)
+                        {   
+                            cUserInput[1] = in_buf;
+                            izhod = "";//postavimo kazalec na pravo mesto za vpisovanje naših ukazov
+                            izhod = zacetek + std::to_string(m + razmaky + 4) + ';' + std::to_string(razmakx + 1) + 'H';
+                            std::cout << izhod;
+                            std::cout << in_buf;
+                            //tukaj imamo vse koordinate ki jih potrebujemo zato lahko že oznaèimo polje
+                            x = razmakx + 2*(cUserInput[0] - 47) + m +20;
+                            y = razmaky + m - cUserInput[1] + 65;
+                            //nariše oranžno èe tam nismo streljali, èene se ne obarva
+                            ax = cUserInput[0] - 48;
+                            ay = cUserInput[1] - 65;
+                            if (nasprotnikovaPlosca[ax][ay] == 0)
+                            {
+                                polje(x, y, 240, 100, 20);
+                            }
+                            outCount++;
+                        }
+                        break;
+
+                    default:
+                        break;
+                }
             }
         }
 
@@ -465,11 +617,58 @@ int main()
 
         if (select(0, &readSet, nullptr, nullptr, &timeout) > 0)
         {
-            ZeroMemory(buf, 4096);
-            int bytesReceived = recv(sock, buf, 4096, 0);
+            ZeroMemory(buf, 256);
+            int bytesReceived = recv(sock, buf, 256, 0);
             if (bytesReceived > 0)
             {
-                std::cout << "prihaja> " << std::string(buf, 0, bytesReceived) << std::endl;
+                //tukaj procesiramo vse kar nam pošlje server
+                //nazaj dobimo 1 ali 2
+                switch (buf[0])
+                {
+                    case 1://nismo zadeli
+                        nasprotnikovaPlosca[ax][ay] = 1;
+                        polje(x, y, 140, 20, 20);
+                        break;
+
+                    case 2://smo zadeli
+                        nasprotnikovaPlosca[ax][ay] = 2;
+                        polje(x, y, 20, 140, 20);
+                        break;
+                }
+                //preveri še kaj je nasprotnik naredil
+                
+                if (buf[0] == 3)//da dobimo kaj nasprotnik dela
+                {
+                    x = buf[2];
+                    y = buf[3];
+                    ax = razmakx + 2*x + 2;
+                    ay = razmaky + m - y;
+                    if (igralnaPlosca[x][y] == 1)
+                    {
+                        polje(ax, ay, 120, 20, 200);
+                    }
+                    else
+                    {
+                        polje(ax, ay, 150, 30, 70);
+                    }
+                    dovoliPosiljanje = true;
+                }
+                if (buf[1] == 2)
+                {
+                    izhod = zacetek + std::to_string(m + razmaky + 5) + ';' + '1' + 'H';
+                    std::cout << izhod;
+
+                    std::cout << "konec igre, zmaga!" << std::endl;
+                    goto konec;
+                }
+                if (buf[1] == 3)
+                {
+                    izhod = zacetek + std::to_string(m + razmaky + 5) + ';' + '1' + 'H';
+                    std::cout << izhod;
+
+                    std::cout << "konec igre, izgubil si!" << std::endl;
+                    goto konec;
+                }
             }
 
             if (bytesReceived == SOCKET_ERROR)
@@ -484,8 +683,17 @@ int main()
 
 
     //tukaj je konec igre
+    izhod = "";
     izhod = zacetek + std::to_string(m + razmaky + 5) + ';' + '1' + 'H';
     std::cout << izhod;
+
+konec:;
+    //zapri socket
+    closesocket(sock);
+
+    //poèisti WinSock
+    WSACleanup();
+
     system("pause");
     return 0;
 }

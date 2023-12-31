@@ -1,3 +1,5 @@
+#define WIN32_LEAN_AND_MEAN
+
 #include <iostream>
 #include <time.h>
 #include <WS2tcpip.h>
@@ -7,7 +9,28 @@
 #pragma comment (lib, "ws2_32.lib")
 
 int main()
-{
+{	
+	const int m = 10;
+	int igralnaPlosca1[m][m];
+	int igralnaPlosca2[m][m];
+	const int potopitve = 13;//glede na št. polj ki ji ladje zavzamejo
+
+	for (int i = 0; i < m; i++)
+	{
+		for (int j = 0; j < m; j++)
+		{
+			igralnaPlosca1[i][j] = 0;
+		}
+	}
+	for (int i = 0; i < m; i++)
+	{
+		for (int j = 0; j < m; j++)
+		{
+			igralnaPlosca2[i][j] = 0;
+		}
+	}
+
+
 	//vspostavi WinSock
 	WSAData wsData;
 	WORD ver MAKEWORD(2, 2);
@@ -90,14 +113,21 @@ int main()
 	//tukaj mora se biti while loop za nastavitev ladjic
 
 	//while loop kjer se igra
-	char buf1[4096];
-	char buf2[4096];
+	int pripravljen = 0;//èe igralec napiše da je pripravljlen da vemo kdaj nadaljevati igro
+	char buf1[256];
+	char buf2[256];
 	fd_set readSet;
 
-	while (true)//to ostane dosti isto samo ne piše veè nazaj
+	int velikost;
+	int x;
+	int y;
+	int smer;
+	int test;
+
+	while (true)//prvi while loop za zajemanje ladjic
 	{
-		ZeroMemory(buf1, 4096);
-		ZeroMemory(buf2, 4096);
+		ZeroMemory(buf1, 256);
+		ZeroMemory(buf2, 256);
 
 		FD_ZERO(&readSet);
 		FD_SET(clientSocket1, &readSet);
@@ -117,7 +147,7 @@ int main()
 
 		if (FD_ISSET(clientSocket1, &readSet))
 		{
-			int bytesReceived1 = recv(clientSocket1, buf1, 4096, 0);
+			int bytesReceived1 = recv(clientSocket1, buf1, 256, 0);
 			if (bytesReceived1 == 0)
 			{
 				std::cout << "Client 1 se je odjavil" << std::endl;
@@ -127,13 +157,50 @@ int main()
 			{
 																		//tukaj dobimo sporocilo od clienta 1
 				std::cout << "client 1 je pisal" << std::endl;
+				test = buf1[0];
+				if (test == 100)
+				{	
+					std::cout << "client 1 pripravljen" << std::endl;
+					pripravljen++;
+					if (pripravljen == 2)
+					{
+						break;
+					}
+				}
+				else
+				{
+					velikost = buf1[0];
+					x = buf1[1];
+					y = buf1[2];
+					smer = buf1[3];
+					std::cout << std::to_string(velikost) << ":,:" << std::to_string(x)
+						<< ":,:" << std::to_string(y) << ":,:" << std::to_string(smer) << std::endl;
+
+					switch (smer)
+					{
+						case 0://vodoravno
+							for (int i = 0; i < velikost; i++)
+							{
+								igralnaPlosca1[x - i][y] = 1;
+							}
+							break;
+
+						case 1://navpièno
+							for (int i = 0; i < velikost; i++)
+							{
+								igralnaPlosca1[x][y - i] = 1;
+							}
+							break;
+					}
+				}
+
 			}
 
 		}
 
 		if (FD_ISSET(clientSocket2, &readSet))
 		{
-			int bytesReceived2 = recv(clientSocket2, buf2, 4096, 0);
+			int bytesReceived2 = recv(clientSocket2, buf2, 256, 0);
 			if (bytesReceived2 == SOCKET_ERROR)
 			{
 				std::cerr << "napaka v recv()" << std::endl;
@@ -148,15 +215,159 @@ int main()
 			else
 			{
 																		//tukaj dobimo sporocilo od clienta 2
-				std::cout << "client 2 pisal" << std::endl;
+				std::cout << "client 2 je pisal" << std::endl;
+				test = buf2[0];
+				if (test == 100)
+				{	
+					std::cout << "client 2 pripravljen" << std::endl;
+					pripravljen++;
+					if (pripravljen == 2)
+					{
+						break;
+					}
+				}
+				else
+				{
+					velikost = buf2[0];
+					x = buf2[1];
+					y = buf2[2];
+					smer = buf2[3];
+					std::cout << std::to_string(velikost) << ":,:" << std::to_string(x)
+						<< ":,:" << std::to_string(y) << ":,:" << std::to_string(smer) << std::endl;
+
+					switch (smer)
+					{
+					case 0://vodoravno
+						for (int i = 0; i < velikost; i++)
+						{
+							igralnaPlosca2[x - i][y] = 1;
+						}
+						break;
+
+					case 1://navpièno
+						for (int i = 0; i < velikost; i++)
+						{
+							igralnaPlosca2[x][y - i] = 1;
+						}
+						break;
+					}
+				}
+
 			}
+		}
+	}
+
+
+	std::cout << "napredujem naprej" << std::endl;
+
+	int client1Potopitve = 0;
+	int client2Potopitve = 0;
+	char nazajClientu[4];
+
+	ZeroMemory(nazajClientu, 4);
+	send(clientSocket1, nazajClientu, 256, 0);
+	nazajClientu[0] = 1;
+	send(clientSocket2, nazajClientu, 256, 0);
+
+	while (true)//drugi while loop za igro
+	{
+		ZeroMemory(buf1, 256);
+		ZeroMemory(buf2, 256);
+		ZeroMemory(nazajClientu, 4);
+
+		
+		int bytesReceived1 = recv(clientSocket1, buf1, 256, 0);
+		if (bytesReceived1 == 0)
+		{
+			std::cout << "Client 1 se je odjavil" << std::endl;
+			return 0;
+		}
+		else
+		{
+																	//tukaj dobimo sporocilo od clienta 1
+			std::cout << "client 1 je pisal" << std::endl;
+			x = buf1[0] - 48;
+			y = buf1[1] - 65;
+
+			if (igralnaPlosca2[x][y] == 1)//èe zadane
+			{
+				client1Potopitve++;
+			}
+			if (client1Potopitve == potopitve)//èe potopi vse ladjice
+			{
+				ZeroMemory(nazajClientu, 4);
+				nazajClientu[1] = 2;
+				send(clientSocket1, nazajClientu, 256, 0);
+				ZeroMemory(nazajClientu, 4);
+				nazajClientu[1] = 3;
+				send(clientSocket2, nazajClientu, 256, 0);
+
+			}
+			nazajClientu[0] = igralnaPlosca2[x][y] + 1;
+			nazajClientu[1] = 1;
+			nazajClientu[2] = x;
+			nazajClientu[3] = y;
+			send(clientSocket1, nazajClientu, 256, 0);
+			nazajClientu[0] = 3;
+			send(clientSocket2, nazajClientu, 256, 0);
 		}
 
 
+		
+		int bytesReceived2 = recv(clientSocket2, buf2, 256, 0);
+		if (bytesReceived2 == SOCKET_ERROR)
+		{
+			std::cerr << "napaka v recv()" << std::endl;
+			return 1;
+		}
+
+		if (bytesReceived2 == 0)
+		{
+			std::cout << "client 2 se je odjavil" << std::endl;
+			return 0;
+		}
+		else
+		{
+																	//tukaj dobimo sporocilo od clienta 2
+			std::cout << "client 2 je pisal" << std::endl;
+			x = buf2[0] - 48;
+			y = buf2[1] - 65;
+
+			if (igralnaPlosca1[x][y] == 1)
+			{
+				client2Potopitve++;
+			}
+			if (client2Potopitve == potopitve)
+			{
+				ZeroMemory(nazajClientu, 4);
+				nazajClientu[1] = 2;
+				send(clientSocket2, nazajClientu, 256, 0);
+				ZeroMemory(nazajClientu, 4);
+				nazajClientu[1] = 3;
+				send(clientSocket1, nazajClientu, 256, 0);
+
+			}
+			nazajClientu[0] = igralnaPlosca2[x][y] + 1;
+			nazajClientu[1] = 1;
+			nazajClientu[2] = x;
+			nazajClientu[3] = y;
+			send(clientSocket2, nazajClientu, 256, 0);
+			nazajClientu[0] = 3;
+			send(clientSocket1, nazajClientu, 256, 0);
+		}
+		
 
 
-
+		if (client1Potopitve == potopitve || client2Potopitve == potopitve)
+		{
+			//pošlji zmagovalcu "win"
+			//pošlji poražencu "los"
+		}
 	}
+
+
+
+
 	//zapri socket-a
 	closesocket(clientSocket1);
 	closesocket(clientSocket2);
